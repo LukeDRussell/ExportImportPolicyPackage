@@ -927,11 +927,15 @@ def adjust_position_decrement(position, error_message):
         position = int(position)
     except ValueError:
         position = 0
+        
+    # Extract the final position from the error message
     indices_of_brackets = [i for i, letter in enumerate(error_message) if letter == '[' or letter == ']']
     valid_range = error_message[indices_of_brackets[4]:indices_of_brackets[5] + 1]
     _, _, final_position_with_bracket = valid_range.partition("-")
-    final_position = final_position_with_bracket[:-1]
-    return position - int(final_position)
+    final_position = int(final_position_with_bracket[:-1])
+    
+    # Calculate and return the adjusted position
+    return position - final_position
 
 
 def check_duplicate_layer(payload, changed_layer_names, api_type, client):
