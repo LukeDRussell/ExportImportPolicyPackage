@@ -440,6 +440,7 @@ def add_object(line, counter, position_decrement_due_to_rule, position_decrement
                 payload["track"] = {}
                 payload["track"]["alert"] = payload["track-alert"]
                 payload.pop("track-alert", None)
+
         elif api_type == "exception-group" and "applied-threat-rules" in payload:
             for applied_rule in payload["applied-threat-rules"]:
                 if applied_rule["layer"] in changed_layer_names.keys():
@@ -614,6 +615,7 @@ def add_object(line, counter, position_decrement_due_to_rule, position_decrement
                                           changed_layer_names, api_call, num_objects, client, args, package)
         if "Invalid parameter for [position]" in reply_err_msg and "exception-group" not in api_type:
             if "access-rule" in api_type or "https-rule" or "threat-exception" in api_type:
+                
                 position_decrement_due_to_rule += adjust_position_decrement(int(payload["position"]), reply_err_msg)
             elif "access-section" in api_type or "https-section" in api_type:
                 position_decrement_due_to_section += adjust_position_decrement(int(payload["position"]), reply_err_msg)
