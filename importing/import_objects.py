@@ -2,7 +2,6 @@ import csv
 import os
 import tarfile
 import sys
-import copy
 from functools import cmp_to_key
 
 from lists_and_dictionaries import (singular_to_plural_dictionary, generic_objects_for_rule_fields, import_priority,
@@ -36,7 +35,7 @@ def clone_globals_batch_rulebase():
 
 
 def revert_to_before_rule_batch(should_create_imported_nat_top_section_clone,
-                                    should_create_imported_nat_bottom_section_clone, imported_nat_top_section_uid_clone):
+                                should_create_imported_nat_bottom_section_clone, imported_nat_top_section_uid_clone):
     global should_create_imported_nat_top_section
     global should_create_imported_nat_bottom_section
     global imported_nat_top_section_uid
@@ -189,8 +188,8 @@ def import_objects(file_name, client, changed_layer_names, package, layer=None, 
             if do_rule_batch_revert:
                 # Revert rule batch globals
                 revert_to_before_rule_batch(should_create_imported_nat_top_section_clone,
-                                                should_create_imported_nat_bottom_section_clone,
-                                                imported_nat_top_section_uid_clone)
+                                            should_create_imported_nat_bottom_section_clone,
+                                            imported_nat_top_section_uid_clone)
 
             for line in data:
                 counter, position_decrement_due_to_rules = add_object(line, counter, position_decrement_due_to_rules,
@@ -392,7 +391,7 @@ def add_object(line, counter, position_decrement_due_to_rule, position_decrement
                 client.api_call("add-nat-section", nat_section_payload)
             payload["position"] = "bottom"
     else:
-        if "position" in payload:
+        if "position" in payload and payload["position"]:
             if "rule" in api_type or api_type == "threat-exception":
                 payload["position"] = str(int(payload["position"]) - position_decrement_due_to_rule)
             if "rule" in api_type:
@@ -582,45 +581,14 @@ def add_object(line, counter, position_decrement_due_to_rule, position_decrement
         if "Object is already imported. please use the existing object" in reply_err_msg:
             return counter, position_decrement_due_to_rule
 
-        if "rule" in api_type and (
-                        "Requested object" in reply_err_msg and "not found" in reply_err_msg):
-            field_value = reply_err_msg.split("[")[1].split("]")[0]
-            indices_of_field = [i for i, x in enumerate(line) if x == field_value]
-            field_keys = [x for x in fields if fields.index(x) in indices_of_field]
-            for field_key in field_keys:
-                if field_key.split(".")[0] in generic_objects_for_rule_fields:
-                    missing_obj_data = generic_objects_for_rule_fields[field_key.split(".")[0]]
-                    missing_type = missing_obj_data[0]
-                    mandatory_field = missing_obj_data[1] if len(missing_obj_data) > 1 else None
-                    add_missing_command = "add-" + missing_type
-                    new_name = "import_error_due_to_missing_fields_" + field_value.replace(" ", "_")
-                    add_succeeded = True
-                    if new_name not in missing_parameter_set:
-                        missing_parameter_set.add(new_name)
-                        add_missing_payload = {"name": new_name}
-                        if mandatory_field == "port":
-                            add_missing_payload["port"] = "8080"
-                        elif mandatory_field == "ip-address":
-                            add_missing_payload["ip-address"] = generate_new_dummy_ip_address()
-                        add_missing_reply = client.api_call(add_missing_command, add_missing_payload)
-                        if not add_missing_reply.success:
-                            log_err_msg += "\nAlso failed to generate placeholder object: {0}".format(
-                                get_reply_err_msg(add_missing_reply))
-                            add_succeeded = False
-                    if add_succeeded:
-                        line[fields.index(field_key)] = new_name
-                        return add_object(line, counter, position_decrement_due_to_rule,
-                                          position_decrement_due_to_section, fields, api_type, generic_type, layer,
-                                          layers_to_attach,
-                                          changed_layer_names, api_call, num_objects, client, args, package)
         if "Invalid parameter for [position]" in reply_err_msg and "exception-group" not in api_type:
             if "access-rule" in api_type or "https-rule" or "threat-exception" in api_type:
                 
                 position_decrement_due_to_rule += adjust_position_decrement(int(payload["position"]), reply_err_msg)
             elif "access-section" in api_type or "https-section" in api_type:
                 position_decrement_due_to_section += adjust_position_decrement(int(payload["position"]), reply_err_msg)
-            return add_object(line, counter, position_decrement_due_to_rule, position_decrement_due_to_section, fields,
-                              api_type, generic_type, layer,
+            return add_object(line, counter, position_decrement_due_to_rule,
+                              position_decrement_due_to_section, fields, api_type, generic_type, layer,
                               layers_to_attach,
                               changed_layer_names, api_call, num_objects, client, args, package)
         elif "is not unique" in reply_err_msg and "name" in reply_err_msg:
@@ -799,7 +767,7 @@ def update_payload_batch(client, payload, api_type, args, is_rule_type, changed_
                     client.api_call("add-nat-section", nat_section_payload)
                 payload["position"] = "bottom"
         else:
-            if "position" in payload:
+            if "position" in payload and payload["position"]:
                 if "rule" in api_type:
                     if payload["action"] == "Drop":
                         if "action-settings" in payload:
@@ -924,20 +892,10 @@ def handle_discard(client):
         exit(1)
 
 
-def adjust_position_decrement(position, error_message):
-    try:
-        position = int(position)
-    except ValueError:
-        position = 0
-        
-    # Extract the final position from the error message
-    indices_of_brackets = [i for i, letter in enumerate(error_message) if letter == '[' or letter == ']']
-    valid_range = error_message[indices_of_brackets[4]:indices_of_brackets[5] + 1]
-    _, _, final_position_with_bracket = valid_range.partition("-")
-    final_position = int(final_position_with_bracket[:-1])
-    
-    # Calculate and return the adjusted position
-    return position - final_position
+def adjust_position_decrement(position, final_position):
+    if final_position:
+        return position - int(final_position)
+    return position
 
 
 def check_duplicate_layer(payload, changed_layer_names, api_type, client):
@@ -970,6 +928,7 @@ def compare_general_object_files(file_a, file_b):
     elif priority_a > priority_b:
         return 1
     return 0
+
 
 def add_suffix_to_objects(payload, api_type, objects_suffix):
     global changed_object_names_map
