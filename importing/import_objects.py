@@ -611,7 +611,8 @@ def add_object(line, counter, position_decrement_due_to_rule, position_decrement
                                           changed_layer_names, api_call, num_objects, client, args, package)
         if "Invalid parameter for [position]" in reply_err_msg and "exception-group" not in api_type:
             if "access-rule" in api_type or "https-rule" or "threat-exception" in api_type:
-                position_decrement_due_to_rule += adjust_position_decrement(int(payload["position"]), reply_err_msg)
+                position = int(payload.get("position", 0))
+                position_decrement_due_to_rule += adjust_position_decrement(position, reply_err_msg)
             elif "access-section" in api_type or "https-section" in api_type:
                 position_decrement_due_to_section += adjust_position_decrement(int(payload["position"]), reply_err_msg)
             return add_object(line, counter, position_decrement_due_to_rule, position_decrement_due_to_section, fields,
