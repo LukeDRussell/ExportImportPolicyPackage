@@ -206,7 +206,10 @@ def import_objects(file_name, client, changed_layer_names, package, layer=None, 
         debug_log("Importing " + layer_type.split('_')[0].capitalize() + "_" + layer_type.split('_')[1].capitalize() +
                   " [" + layer_name + "]", True)
         import_objects(rulebase_object_file.name, client, changed_layer_names, package, layer_name, args)
-        os.remove(rulebase_object_file.name)
+        try:
+            os.remove(rulebase_object_file.name)
+        except WindowsError as err:
+            print(err, file=sys.stderr)
 
     return layers_to_attach
 
