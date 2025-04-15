@@ -1,3 +1,10 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "cp-mgmt-api-sdk",
+# ]
+# ///
+
 from __future__ import print_function
 
 import sys
